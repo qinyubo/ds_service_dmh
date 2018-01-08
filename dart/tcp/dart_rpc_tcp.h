@@ -66,6 +66,7 @@ struct rpc_cmd {
         unsigned char            cmd;            // type of command
         unsigned char            num_msg;
         unsigned int           id; //Dart ID
+        int* sync_comp_ptr; //client  sync_op.ds_comp[] pointer
 
         unsigned char            pad[280+(BBOX_MAX_NDIM-3)*24];// payload of the command
 } __attribute__((__packed__));
@@ -238,7 +239,8 @@ enum cmd_type {
 #endif
     /* Added for CCGrid Demo. */
     CN_TIMING_AVG,
-    _CMD_COUNT
+    _CMD_COUNT,
+    ds_put_completion  //for server notify client that data processing has completed
 };
 
 enum lock_type {

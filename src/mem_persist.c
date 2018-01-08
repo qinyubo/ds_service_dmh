@@ -42,7 +42,7 @@
 #include <ctype.h>
 
 /* using 64M ssd file for this example */
-#define PMEM_SIZE 64*1024*1024L
+//#define PMEM_SIZE 64*1024*1024L
 //#define PMEM_SIZE 256*1024*1024*1024L
 //#define PMEM_SIZE 128*1024*1024*1024L
 //#define PMEM_SIZE 64*1024*1024*1024L
@@ -51,11 +51,11 @@
 //#define PMEM_SIZE 48*1024*1024*1024L
 //#define PMEM_SIZE 32*1024*1024*1024L
 //#define PMEM_SIZE 16*1024*1024*1024L
-//#define PMEM_SIZE 8*1024*1024*1024L
+#define PMEM_SIZE 8*1024*1024*1024L
 //#define PMEM_SIZE 1*1024*1024*1024L
 
 /* using /ssd1/sd904/ ssd file path for this example */
-#define PMEM_PATH "/ccs/home/sd904/"
+#define PMEM_PATH "/ssd/yubo/"
 //#define PMEM_PATH "/home1/sd904/"
 //#define PMEM_PATH ""
 

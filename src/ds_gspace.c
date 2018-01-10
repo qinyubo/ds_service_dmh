@@ -1324,6 +1324,8 @@ static int dsgrpc_obj_put(struct rpc_server *rpc_s, struct rpc_cmd *cmd)
 		}
 #endif
 		//<-----Duan
+        uloga("%s(Yubo) In obj_put\n",__func__);
+
         odsc->owner = DSG_ID;
         dc_sync_comp_ptr = hdr->sync_comp_ptr; //get pointer
 

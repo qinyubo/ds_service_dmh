@@ -1638,6 +1638,8 @@ int dcg_obj_put(struct obj_data *od)
         hdr->sync_comp_ptr = syncds_ref(sync_op_id); //assign syncop.ds_comp ref
         memcpy(&hdr->gdim, &od->gdim, sizeof(struct global_dimension));
 
+        uloga("%s(Yubo): my DCG_ID=%d, my peer id=%d\n",__func__, DCG_ID, peer->ptlmap.id);
+
         err = rpc_send(dcg->dc->rpc_s, peer, msg);
         if (err < 0) {
                 free(msg);

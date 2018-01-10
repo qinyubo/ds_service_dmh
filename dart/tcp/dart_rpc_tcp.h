@@ -35,6 +35,7 @@ struct rpc_server;
 struct rpc_cmd;
 struct node_id;
 struct rpc_request;
+struct task_obj; //Yubo store incomming tasks on server
 
 /*
   Service function for rpc message
@@ -293,6 +294,12 @@ static int default_completion_with_data_callback(struct rpc_server *rpc_s, struc
     return 0;
 }
 
+struct task_obj {
+    struct rpc_server *rpc_s;
+    struct rpc_cmd *rpc_cmd;
+
+};
+
 void rpc_add_service(enum cmd_type rpc_cmd, rpc_service rpc_func);
 
 int rpc_send_connection_info(struct rpc_server *rpc_s, struct node_id *peer);
@@ -304,6 +311,7 @@ int rpc_write_config(struct rpc_server *rpc_s, const char *filename);
 int rpc_read_config(struct sockaddr_in *address, const char *filename);
 int rpc_connect(struct rpc_server *rpc_s, struct node_id *peer);
 int rpc_process_event(struct rpc_server *rpc_s);
+int rpc_process_event_ds(struct rpc_server *rpc_s);
 int rpc_barrier(struct rpc_server *rpc_s, void *comm);
 int rpc_send(struct rpc_server *rpc_s, struct node_id *peer, struct msg_buf *msg);
 int rpc_send_direct(struct rpc_server *rpc_s, struct node_id *peer, struct msg_buf *msg);

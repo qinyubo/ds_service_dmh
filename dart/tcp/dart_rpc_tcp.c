@@ -7,12 +7,18 @@
 
 #include "dart_rpc_tcp.h"
 #include "debug.h"
+#include "../../include/queue.h"
 
 /* It may be better to store these values in rpc_server struct */
 /* Best size of bytes to be written in a single socket write call */
 static uint64_t socket_best_write_size = 16384;
 /* Best size of bytes to be read in a single socket read call */
 static uint64_t socket_best_read_size = 87380;
+
+//Global task queue, store incoming task on server
+extern struct queue task_queue;
+
+//queue_init(&task_queue);
 
 static uint64_t str_to_uint64(const char *s) {
     uint64_t res = 0;
@@ -357,11 +363,39 @@ int rpc_connect(struct rpc_server *rpc_s, struct node_id *peer) {
 }
 
 static int rpc_process_cmd(struct rpc_server *rpc_s, struct rpc_cmd *cmd) {
-    ulog("[%s]: peer %d (%s) will process RPC command %d from %d.\n", __func__,
+    uloga("[%s]: peer %d (%s) will process RPC command %d from %d.\n", __func__,\
         rpc_s->ptlmap.id, rpc_s->cmp_type == DART_SERVER ? "server" : "client", (int)cmd->cmd, cmd->id);
     int i;
+    uloga("%s(Yubo) debug #7 I am client\n",__func__);
     for (i = 0; i < num_service; ++i) {
         if (cmd->cmd == rpc_commands[i].rpc_cmd) {
+            uloga("%s(Yubo) calling rpc_commands=%d\n",__func__, cmd->cmd);
+            if (rpc_commands[i].rpc_func(rpc_s, cmd) < 0) {
+                printf("[%s]: call RPC command function failed!\n", __func__);
+                goto err_out;
+            }
+            break;
+        }
+    }
+    if (i == num_service) {
+        printf("[%s]: unknown RPC command %d!\n", __func__, (int)cmd->cmd);
+        goto err_out;
+    }
+    return 0;
+
+    err_out:
+    return -1;
+}
+
+static int rpc_process_cmd_ds(struct rpc_server *rpc_s, struct rpc_cmd *cmd) {
+    uloga("[%s]: peer %d (%s) will process RPC command %d from %d.\n", __func__,\
+        rpc_s->ptlmap.id, rpc_s->cmp_type == DART_SERVER ? "server" : "client", (int)cmd->cmd, cmd->id);
+    int i;
+    uloga("%s(Yubo) debug #7 I am server\n",__func__);
+    
+    for (i = 0; i < num_service; ++i) {
+        if (cmd->cmd == rpc_commands[i].rpc_cmd) {
+            uloga("%s(Yubo) calling rpc_commands=%d\n",__func__, cmd->cmd);
             if (rpc_commands[i].rpc_func(rpc_s, cmd) < 0) {
                 printf("[%s]: call RPC command function failed!\n", __func__);
                 goto err_out;
@@ -381,6 +415,7 @@ static int rpc_process_cmd(struct rpc_server *rpc_s, struct rpc_cmd *cmd) {
 
 /* Process the RPC requests from a specific peer */
 static int rpc_process_event_peer(struct rpc_server *rpc_s, struct node_id *peer) {
+
     while (1) {
         struct rpc_cmd cmd;
         int ret = socket_recv_rpc_cmd(peer->sockfd, &cmd);
@@ -395,10 +430,87 @@ static int rpc_process_event_peer(struct rpc_server *rpc_s, struct node_id *peer
 
         /* It is more convenient to set id here */
         cmd.id = peer->ptlmap.id;
+        //uloga("%s(Yubo): dart_rpc_tcp server received an event from peer=%d\n",__func__, peer->ptlmap.id);
         if (rpc_process_cmd(rpc_s, &cmd) < 0) {
             printf("[%s]: process RPC command failed!\n", __func__);
             goto err_out;
         }
+    }
+    return 0;
+
+    err_out:
+    return -1;
+}
+
+static int rpc_get_task_ds(){
+    struct rpc_server *rpc_s;
+    struct rpc_cmd *cmd;
+    struct task_obj *task_obj_local;
+    //uloga("%s(Yubo) #3\n",__func__);
+
+
+    if(!queue_is_empty(&task_queue)){
+        task_obj_local = queue_dequeue(&task_queue);
+    }
+
+    rpc_s = task_obj_local->rpc_s;
+    cmd = task_obj_local->rpc_cmd;
+
+    uloga("%s(Yubo) dequeue cmd=%d rpc_s=%d\n",__func__, cmd->cmd, rpc_s->ptlmap.id);
+
+
+    if (rpc_process_cmd_ds(rpc_s, cmd) < 0) {
+        printf("[%s]: process RPC command failed!\n", __func__);
+        goto err_out;
+    }
+
+    return 0;
+
+    err_out:
+    return -1;
+    
+}
+
+
+
+/* Process the RPC requests from a specific peer */
+static int rpc_process_event_peer_ds(struct rpc_server *rpc_s, struct node_id *peer) {
+    struct task_obj *task_obj;
+    task_obj = malloc(sizeof(struct task_obj));
+   // uloga("%s(Yubo) #2\n",__func__);
+
+    while (1) {
+        struct rpc_cmd cmd;
+        int ret = socket_recv_rpc_cmd(peer->sockfd, &cmd);
+        if (ret < 0) {
+            printf("[%s]: receive RPC command from peer %d failed!\n", __func__, peer->ptlmap.id);
+            goto err_out;
+        }
+        if (ret == 1) {
+            /* No event to process */
+            break;
+        }
+        
+        uloga("%s(Yubo) received cmd=%d rpc_s=%d, peer_id=%d\n",__func__, cmd.cmd, rpc_s->ptlmap.id, peer->ptlmap.id);
+
+        /* It is more convenient to set id here */
+        cmd.id = peer->ptlmap.id;
+
+        //create task obj to store received cmd then push into task queue
+        task_obj->rpc_s = rpc_s;
+        task_obj->rpc_cmd = &cmd;
+
+        queue_enqueue(&task_queue, task_obj);
+
+        //fetch and execute task
+
+
+        
+        if (rpc_get_task_ds() < 0) {
+            printf("[%s]: process RPC command failed!\n", __func__);
+            goto err_out;
+        }
+        
     }
     return 0;
 
@@ -422,6 +534,28 @@ int rpc_process_event(struct rpc_server *rpc_s) {
     }
     return 0;
 }
+
+int rpc_process_event_ds(struct rpc_server *rpc_s) {
+    int i;
+    //uloga("%s(Yubo) #1\n",__func__);
+    for (i = 0; i < rpc_s->num_peers; ++i) {
+       // uloga("%s(Yubo) #2\n",__func__);
+        struct node_id *peer = &rpc_s->peer_tab[i];
+      //  uloga("%s(Yubo) #3\n",__func__);
+        if (!peer->f_connected) {
+            /* Not connected yet, no need for processing event */
+            continue;
+        }
+
+        if (rpc_process_event_peer_ds(rpc_s, peer) < 0) {
+            printf("[%s]: process event for peer %d failed, skip!\n", __func__, peer->ptlmap.id);
+            continue;
+        }
+    }
+    return 0;
+}
+
+
 
 int rpc_barrier(struct rpc_server *rpc_s, void *comm) {
     /* TODO: should use a better way */
@@ -507,6 +641,9 @@ int rpc_send(struct rpc_server *rpc_s, struct node_id *peer, struct msg_buf *msg
     request->data = msg->msg_rpc;
     request->size = sizeof(*msg->msg_rpc);
     request->cb = (request_callback)rpc_cb_request_posted;
+
+    //uloga("%s(Yubo) my rpc_server id=%d, peer num_request=%d\n",__func__, rpc_s->ptlmap.id, peer->num_req);
+
     list_add(&request->req_entry, &peer->req_list);
     if (peer_process_send_list(rpc_s, peer) < 0) {
         printf("[%s]: process send list for peer %d failed!\n", __func__, peer->ptlmap.id);

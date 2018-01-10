@@ -3,6 +3,10 @@
 #include <unistd.h>
 #include "ds_base_tcp.h"
 #include "debug.h"
+#include "../../include/queue.h"
+
+struct queue task_queue;
+
 
 static struct app_info *app_alloc() {
     struct app_info *app = (struct app_info *)malloc(sizeof(struct app_info));
@@ -522,7 +526,7 @@ int ds_boot_master(struct dart_server *ds) {
     ds->self = &ds->peer_tab[0];
     ds->self->ptlmap = ds->rpc_s->ptlmap;
     while (!ds->f_reg) {
-        rpc_process_event(ds->rpc_s);
+        rpc_process_event_ds(ds->rpc_s);
     }
     int i;
     for (i = 0; i < ds->peer_size; ++i) {
@@ -557,7 +561,7 @@ int ds_boot_slave(struct dart_server *ds) {
     msg = NULL;
 
     while (!ds->f_reg) {
-        rpc_process_event(ds->rpc_s);
+        rpc_process_event_ds(ds->rpc_s);
     }
     int i;
     for (i = 0; i < ds->peer_size; ++i) {
@@ -639,6 +643,8 @@ struct dart_server *ds_alloc(int num_sp, int num_cp, void *dart_ref) {
         printf("[%s]: allocate DART server failed!\n", __func__);
         goto err_out;
     }
+    //init queue
+    queue_init(&task_queue);
 
     memset(ds, 0, size);
     ds->peer_size = num_sp + num_cp;
@@ -711,5 +717,5 @@ void ds_free(struct dart_server* ds) {
 }
 
 int ds_process(struct dart_server* ds) {
-    return rpc_process_event(ds->rpc_s);
+    return rpc_process_event_ds(ds->rpc_s);
 }

@@ -55,6 +55,7 @@ static int rpc_handler_cn_register(struct rpc_server *rpc_s, struct rpc_cmd *cmd
         INIT_LIST_HEAD(&peer->req_list);
     }
 
+    uloga("%s(Yubo), I have peers = %d\n",__func__, dc->peer_size);
     rpc_server_set_peer_ref(rpc_s, dc->peer_tab, dc->peer_size);
     rpc_s->ptlmap.id = pl->id_cp;
     dc->self = &dc->peer_tab[rpc_s->ptlmap.id];
@@ -134,6 +135,8 @@ static int dc_register_at_master(struct dart_client *dc, int appid) {
     dc->peer_tab = (struct node_id *)malloc(size);
     memset(dc->peer_tab, 0, size);
     rpc_server_set_peer_ref(dc->rpc_s, dc->peer_tab, dc->peer_size);
+
+    uloga("%s(Yubo) I have num of peers=%d\n",__func__,dc->peer_size);
 
     const char *filename_conf = "conf";
 
